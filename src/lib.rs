@@ -1,20 +1,74 @@
+use std::process::Command;
+use weechat::hooks::SignalData;
+use weechat::hooks::SignalHook;
 use weechat::plugin;
 use weechat::Args;
 use weechat::Plugin;
+use weechat::ReturnCode;
 use weechat::Weechat;
 
-struct WeechatNotify;
+struct WeechatNotify {
+    // these have underscores to suppress the dead_code warning. they are still dropped when the
+    // plugin is unloaded.
+    _h1: SignalHook,
+    _h2: SignalHook,
+}
 
 impl Plugin for WeechatNotify {
     fn init(_: &Weechat, _: Args) -> Result<Self, ()> {
-        Weechat::print("Hello from weechat-notify!");
-        Ok(Self)
+        let _h1 = SignalHook::new("weechat_highlight", notify)?;
+        let _h2 = SignalHook::new("irc_pv", notify)?;
+        Ok(Self { _h1, _h2 })
     }
 }
 
-impl Drop for WeechatNotify {
-    fn drop(&mut self) {
-        Weechat::print("Bye from weechat-notify!");
+fn notify_inner(
+    _weechat: &Weechat,
+    _signal_name: &str,
+    data: Option<SignalData>,
+) -> Result<(), String> {
+    if let Some(SignalData::String(s)) = data {
+        let mut arr: Vec<&str> = s.split("\t").collect();
+        if arr.len() == 1 {
+            let a = arr[0].split("PRIVMSG").collect::<Vec<&str>>();
+            let b = a[0]
+                .split("!")
+                .next()
+                .map(|s| s.strip_prefix(":"))
+                .flatten()
+                .ok_or_else(|| "malformed data".to_string())?;
+            let c = a[1]
+                .split(":")
+                .nth(1)
+                .ok_or_else(|| "malformed data".to_string())?;
+            arr = vec![b, c];
+        }
+
+        let nick = arr[0];
+        let text = arr[1];
+
+        Command::new("notify-send")
+            .arg("-i")
+            .arg("/usr/share/icons/Papirus-Dark/128x128/apps/weechat.svg")
+            .arg("--")
+            .arg(format!("{}:", nick))
+            .arg(text)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+
+        return Ok(());
+    }
+
+    Err("No data was provided to the plugin".into())
+}
+
+fn notify(weechat: &Weechat, signal_name: &str, data: Option<SignalData>) -> ReturnCode {
+    match notify_inner(weechat, signal_name, data) {
+        Ok(_) => ReturnCode::Ok,
+        Err(e) => {
+            Weechat::print(&e);
+            ReturnCode::Error
+        }
     }
 }
 
