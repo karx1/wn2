@@ -16,9 +16,9 @@ struct WeechatNotify {
 
 impl Plugin for WeechatNotify {
     fn init(_: &Weechat, _: Args) -> Result<Self, ()> {
-        let _h1 = SignalHook::new("weechat_highlight", notify)?;
-        let _h2 = SignalHook::new("irc_pv", notify)?;
-        Ok(Self { _h1, _h2 })
+        let h1 = SignalHook::new("weechat_highlight", notify)?;
+        let h2 = SignalHook::new("irc_pv", notify)?;
+        Ok(Self { _h1: h1, _h2: h2 })
     }
 }
 
@@ -28,17 +28,16 @@ fn notify_inner(
     data: Option<SignalData>,
 ) -> Result<(), String> {
     if let Some(SignalData::String(s)) = data {
-        let mut arr: Vec<&str> = s.split("\t").collect();
+        let mut arr: Vec<&str> = s.split('\t').collect();
         if arr.len() == 1 {
             let a = arr[0].split("PRIVMSG").collect::<Vec<&str>>();
             let b = a[0]
-                .split("!")
+                .split('!')
                 .next()
-                .map(|s| s.strip_prefix(":"))
-                .flatten()
+                .and_then(|s| s.strip_prefix(':'))
                 .ok_or_else(|| "malformed data".to_string())?;
             let c = a[1]
-                .split(":")
+                .split(':')
                 .nth(1)
                 .ok_or_else(|| "malformed data".to_string())?;
             arr = vec![b, c];
