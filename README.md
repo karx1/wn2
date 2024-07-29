@@ -1,6 +1,6 @@
 # wn2
 
-[weechat-notify](https://git.karx.xyz/karx/weechat-notify), implemented as a native plugin instead of a script with a library.
+A notification plugin for weechat, written in rust 
 
 requires: rust, notify-send
 
